@@ -145,11 +145,8 @@ def build_report(url):
                 newLink = str(link.get('href'))
                 pagelinks.append(newLink)
                 pagetitles.append(link.text)
-                if str(newLink[0:(len(url))]) == str(url):
-                    domain = True
-                else:
+                if not str(newLink[0:(len(url))]) == str(url):
                     domain = False
-
             pagesoup = BeautifulSoup((requests.get(newLink)).text, 'html.parser')
             comboresults.append(respAndError(pagesoup, domain))
 
@@ -161,7 +158,6 @@ def build_report(url):
     for i in range(0, len(comboresults)):                 #Breaks down tuple from respAndError() and puts values in lists
         respresults.append(comboresults[i][0])
         errors.append(comboresults[i][1])        
-    
     print(time.time()-starttime)
 
     linksummary['Title'] = pagetitles                   #Build pandas DataFrame
