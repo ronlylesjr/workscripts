@@ -100,7 +100,7 @@ def filloutleads(contacturl, appurl):       #Fills out lead forms specified in g
     for menu in soup.findAll('select'):
         if menu.has_attr('required'):            
             if 'CoApplicant' in str(menu.get('id')):
-                    pass
+                pass
             elif 'State' in str(menu.get('id')):
                 browser.select(menu.get('name'), 'AL')
             elif 'Years' in str(menu.get('id')):
@@ -129,7 +129,6 @@ def build_report(url):
     fields = dict(re.findall(pattern, script.text))
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
-    
     
     #for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
     for link in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a'):        #Loop through first column of sitemap to grab pages to check. Chose to exclude 
