@@ -167,7 +167,6 @@ def build_report(url):
 
     if df['Is_Responsive'].isin(['Not Responsive']).any() == True or df['Errors'].isin(['404']).any() == True:
         print('\aPlease check summary to see errors') 
- 
     try:             
         theurls = geturls(soup2, financeurl)
         print('Starting browser automation...')
