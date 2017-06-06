@@ -11,32 +11,28 @@ def findPageType(soup):
     pagetype = fields['PageType']
     return pagetype 
 
-def scriptcheck(url, domain):
-    if domain:
-       script = '<meta name="robots" content="noindex,follow,noodp" />'
-       
-       try:
-           page = requests.get(url)
+def scriptcheck(url):
+    script = '<meta name="robots" content="noindex,follow,noodp" />'
+    try:
+        page = requests.get(url)
 
-           if (script) in page.text:
-               scriptfinding = 'Present'
-           else:
-                scriptfinding = 'Not Present'
-       except:
-           scriptfinding = 'Broken Link'
-    else:
-        scriptfinding = 'Different Domain'
-        
+        if (script) in page.text:
+            scriptfinding = 'Present'
+        else:
+            scriptfinding = 'Not Present'
+    except:
+       scriptfinding = 'Broken Link'
     return(scriptfinding)    
 
 def build_report(url):
     resultsdict = {}
     starttime = time.time()
     sitemap = url + 'sitemap.aspx'
-    soup2 = BeautifulSoup((requests.get(sitemap)).text, 'html.parser')
+    s = requests.Session()
+    s.get(url)
+    soup2 = BeautifulSoup((s.get(sitemap)).text, 'html.parser')
 
     for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
-            domain = True 
             try: 
                 if '#' not in str(link.get('href')):
                     if link.has_attr('href'):
@@ -47,15 +43,16 @@ def build_report(url):
                             pagelinks.append(newLink)
                             pagetitles.append(link.text)
                             if not str(newLink[0:(len(url))]) == str(url):
-                                domain = False
+                                resultsdict[newLink] = 'Different Domain'
+                                break
                 try:
-                    pagesoup = BeautifulSoup((requests.get(newLink)).text, 'html.parser')
+                    pagesoup = BeautifulSoup((s.get(newLink)).text, 'html.parser')
                     if (str(findPageType(pagesoup))[:1] == '2'):
-                        resultsdict[newLink] = scriptcheck(newLink, domain)
+                        resultsdict[newLink] = scriptcheck(newLink)
                 except:
                     pass
             except:
-                pass                    
+                pass 
     print(time.time()-starttime)
 
     for result in resultsdict.items():
@@ -63,10 +60,9 @@ def build_report(url):
             print(result[0])
 
 if __name__ == '__main__':
-    urllist = ['http://rontest1212015.beta.ebizautos.com/']
+    urllist = ['http://rontest1212015.beta.ebizautos.com/', 'http://porsche-found.beta.sandbox.ebizautos.com/']
     start = time.time()
     for url in urllist:
         build_report(url)
-
     endtime = time.time()
     print('Complete in ' + str(endtime - start))
