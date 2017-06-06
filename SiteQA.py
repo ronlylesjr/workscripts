@@ -121,14 +121,15 @@ def build_report(url):
     linksummary = {}
     starttime = time.time()
     sitemap = url + 'sitemap.aspx'
-    soup2 = BeautifulSoup((requests.get(sitemap)).text, 'html.parser')
+    s = requests.Session()
+    s.get(url)
+    soup2 = BeautifulSoup((s.get(sitemap)).text, 'html.parser')
     script = soup2.find('script', attrs={'language' : 'javascript'})
     pattern = re.compile("(\w+): '(.*?)'")
     fields = dict(re.findall(pattern, script.text))
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
-    s = requests.Session()
-    s.get(url)
+    
     
     #for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
     for link in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a'):        #Loop through first column of sitemap to grab pages to check. Chose to exclude 
