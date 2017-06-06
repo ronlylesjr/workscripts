@@ -47,23 +47,19 @@ def dictBuilder(appurl):        #Build dictionary based on the required items on
                 appDict[field.get('name')] = name
     return(appDict)            
 
-def respAndError(soup, domain):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
-    if domain:                               #Uses domain bool to first check if link is on same domain.
-       try:
-           if (soup.find('div', attrs={'id' : 'side-panel'})):
-               respfinding = 'Responsive'
-           else:
-                respfinding = 'Not Responsive'
-           if (soup.find('div', attrs={'class' : 'error404'})):
-               errorfinding = '404'
-           else:
-                errorfinding = 'OK'         
-       except:
-           respfinding = 'Broken Link'
-           errorfinding = 'Broken Link'
-    else:
-        respfinding = 'Different Domain'
-        errorfinding = 'Different Domain'        
+def respAndError(soup):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
+    try:
+       if (soup.find('div', attrs={'id' : 'side-panel'})):
+           respfinding = 'Responsive'
+       else:
+            respfinding = 'Not Responsive'
+       if (soup.find('div', attrs={'class' : 'error404'})):
+           errorfinding = '404'
+       else:
+            errorfinding = 'OK'         
+    except:
+       respfinding = 'Broken Link'
+       errorfinding = 'Broken Link'
     return(respfinding, errorfinding)   #Returns tuple
 
 def geturls(soup, financeurl):          #Finds link for Request More Info form and Credit app.
@@ -131,13 +127,13 @@ def build_report(url):
     fields = dict(re.findall(pattern, script.text))
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
+    s = requests.Session()
+    s.get(url)
     
     #for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
     for link in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a'):        #Loop through first column of sitemap to grab pages to check. Chose to exclude 
-        domain = True                                                                                   #exclude inventory, as there could be upwards of 400 pages to check. This gives
-                                                                                                        #necessary breadth without slowing down process.
-        if link.has_attr('href'):
-            if str(link.get('href'))[:1] == '/':
+        if link.has_attr('href'):                                                                       #exclude inventory, as there could be upwards of 400 pages to check. This gives
+            if str(link.get('href'))[:1] == '/':                                                        #necessary breadth without slowing down process.
                 newLink = 'http:' + str(link.get('href'))                  
                 pagelinks.append(newLink)
                 pagetitles.append(link.text)
@@ -146,9 +142,10 @@ def build_report(url):
                 pagelinks.append(newLink)
                 pagetitles.append(link.text)
                 if not str(newLink[0:(len(url))]) == str(url):
-                    domain = False
-            pagesoup = BeautifulSoup((requests.get(newLink)).text, 'html.parser')
-            comboresults.append(respAndError(pagesoup, domain))
+                    comboresults.append(('Different Domain', 'Different Domain'))
+                    break
+            pagesoup = BeautifulSoup((s.get(newLink)).text, 'html.parser')
+            comboresults.append(respAndError(pagesoup))
 
             try:
                 if (str(findPageType(pagesoup))[:1] == '3'):
