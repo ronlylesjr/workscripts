@@ -60,7 +60,7 @@ def build_report(url):
             print(result[0])
 
 if __name__ == '__main__':
-    urllist = ['http://rontest1212015.beta.ebizautos.com/', 'http://porsche-found.beta.sandbox.ebizautos.com/']
+    urllist = ['http://rontest1212015.beta.ebizautos.com/']
     start = time.time()
     for url in urllist:
         build_report(url)
