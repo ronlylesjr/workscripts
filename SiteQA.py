@@ -5,7 +5,6 @@ import pandas as pd
 import re
 import requests
 import time
-import numpy as np
 
 today = datetime.datetime.now()
 
@@ -141,12 +140,11 @@ def build_report(url):
                 newLink = str(link.get('href'))
                 pagelinks.append(newLink)
                 pagetitles.append(link.text)
-                if not str(newLink[0:(len(url))]) == str(url):
-                    comboresults.append(('Different Domain', 'Different Domain'))
-                    break
             pagesoup = BeautifulSoup((s.get(newLink)).text, 'html.parser')
-            comboresults.append(respAndError(pagesoup))
-
+            if not str(newLink[0:(len(url))]) == str(url):
+                comboresults.append(('Different Domain', 'Different Domain'))
+            else:
+                comboresults.append(respAndError(pagesoup))
             try:
                 if (str(findPageType(pagesoup))[:1] == '3'):
                     financeurl = newLink
