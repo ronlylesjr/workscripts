@@ -16,35 +16,24 @@ def findPageType(soup):
     return pagetype 
 
 def dictBuilder(appurl):        #Build dictionary based on the required items on the form.
-    num = '1234567890'
-    name = 'Test'
-    DOB = '01/01/1985'
-    email = 'test.me@ebizautos.com'
-    date = today.strftime('%m/%d/%Y')
+    refdict = {'1234567890' : ['Phone', 'Num', 'Amount', 'Zip'],
+    'test.me@ebizautos.com' : ['Email'],
+    today.strftime('%m/%d/%Y'): ['Date'],
+    '01/01/1985': ['DateOfBirth'],}
     appDict = {}    
     soup = BeautifulSoup((requests.get(appurl)).text, 'html.parser')
 
     for field in soup.findAll('input'):
+        present = False
         if field.has_attr('required'):
-            if 'CoApplicant' in str(field.get('id')):
-                pass
-            elif 'Phone' in str(field.get('id')):
-                appDict[field.get('name')] = num
-            elif 'Email' in str(field.get('id')):
-                appDict[field.get('name')] = email
-            elif 'Amount' in str(field.get('id')):
-                appDict[field.get('name')] = num
-            elif 'DateOfBirth' in str(field.get('id')):
-                appDict[field.get('name')] = DOB
-            elif 'Num' in str(field.get('id')):
-                appDict[field.get('name')] = num
-            elif 'Date' in str(field.get('id')):
-                appDict[field.get('name')] = date
-            elif 'Zip' in str(field.get('id')):
-                appDict[field.get('name')] = num
-            else: 
-                appDict[field.get('name')] = name
-    return(appDict)            
+            for item in refdict.items():
+                for ref in item[1]:
+                    if ref in str(field.get('id')):
+                        appDict[field.get('name')] = item[0]
+                        present = True
+            if not present:
+                appDict[field.get('name')] = 'Test'
+    return(appDict)  
 
 def respAndError(soup):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
     try:
@@ -112,8 +101,6 @@ def filloutleads(contacturl, appurl):       #Fills out lead forms specified in g
     browser.quit()
       
 def build_report(url):            
-    pagelinks = []
-    pagetitles = []
     respresults = []
     errors = []
     comboresults = []
@@ -130,33 +117,27 @@ def build_report(url):
     print(fields['DealerName'])
     
     #for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
-    for link in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a'):        #Loop through first column of sitemap to grab pages to check. Chose to exclude 
-        if link.has_attr('href'):                                                                       #exclude inventory, as there could be upwards of 400 pages to check. This gives
-            if str(link.get('href'))[:1] == '/':                                                        #necessary breadth without slowing down process.
-                newLink = 'http:' + str(link.get('href'))                  
-                pagelinks.append(newLink)
-                pagetitles.append(link.text)
-            else:
-                newLink = str(link.get('href'))
-                pagelinks.append(newLink)
-                pagetitles.append(link.text)
-            pagesoup = BeautifulSoup((s.get(newLink)).text, 'html.parser')
-            if not str(newLink[0:(len(url))]) == str(url):
-                comboresults.append(('Different Domain', 'Different Domain'))
-            else:
-                comboresults.append(respAndError(pagesoup))
-            try:
-                if (str(findPageType(pagesoup))[:1] == '3'):
-                    financeurl = newLink
-            except:
-                pass     
+    titles = [x.text for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
+    links = [x.get('href') for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
+    links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
+    for link in links:
+        pagesoup = BeautifulSoup((s.get(link)).text, 'html.parser')
+        if not str(link[0:(len(url))]) == str(url):
+            comboresults.append(('Different Domain', 'Different Domain'))
+        else:
+            comboresults.append(respAndError(pagesoup))
+        try:
+            if (str(findPageType(pagesoup))[:1] == '3'):
+                financeurl = link
+        except:
+            pass   
     for i in range(0, len(comboresults)):                 #Breaks down tuple from respAndError() and puts values in lists
         respresults.append(comboresults[i][0])
         errors.append(comboresults[i][1])        
     print(time.time()-starttime)
 
-    linksummary['Title'] = pagetitles                   #Build pandas DataFrame
-    linksummary['Link'] = pagelinks
+    linksummary['Title'] = titles                   #Build pandas DataFrame
+    linksummary['Link'] = links
     linksummary['Is_Responsive'] = respresults
     linksummary['Errors'] = errors    
     df = pd.DataFrame(linksummary)
