@@ -37,18 +37,23 @@ def dictBuilder(appurl):        #Build dictionary based on the required items on
 
 def respAndError(soup):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
     try:
-       if (soup.find('div', attrs={'id' : 'side-panel'})):
+        if (soup.find('div', attrs={'id' : 'side-panel'})):
            respfinding = 'Responsive'
-       else:
+        else:
             respfinding = 'Not Responsive'
-       if (soup.find('div', attrs={'class' : 'error404'})):
+        
+        if (soup.find('div', attrs={'class' : 'error404'})):
            errorfinding = '404'
-       else:
+        else:
             errorfinding = 'OK'         
     except:
        respfinding = 'Broken Link'
        errorfinding = 'Broken Link'
-    return(respfinding, errorfinding)   #Returns tuple
+    try:
+        pagetype = findPageType(soup)
+    except:
+        pagetype = 'N/A'
+    return (respfinding, errorfinding, pagetype)   #Returns tuple
 
 def geturls(soup, financeurl):          #Finds link for Request More Info form and Credit app.
     for link in soup.findAll('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a'):       #Grab first vehicle in inventory...
@@ -101,8 +106,6 @@ def filloutleads(contacturl, appurl):       #Fills out lead forms specified in g
     browser.quit()
       
 def build_report(url):            
-    respresults = []
-    errors = []
     comboresults = []
     linksummary = {}
     starttime = time.time()
@@ -120,20 +123,11 @@ def build_report(url):
     titles = [x.text for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
     links = [x.get('href') for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
     links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
-    for link in links:
-        pagesoup = BeautifulSoup((s.get(link)).text, 'html.parser')
-        if not str(link[0:(len(url))]) == str(url):
-            comboresults.append(('Different Domain', 'Different Domain'))
-        else:
-            comboresults.append(respAndError(pagesoup))
-        try:
-            if (str(findPageType(pagesoup))[:1] == '3'):
-                financeurl = link
-        except:
-            pass   
-    for i in range(0, len(comboresults)):                 #Breaks down tuple from respAndError() and puts values in lists
-        respresults.append(comboresults[i][0])
-        errors.append(comboresults[i][1])        
+    comboresults = [respAndError(BeautifulSoup((s.get(x)).text, 'html.parser')) if x[0:(len(url))] == str(url) else ('Different Domain', 'Different Domain', 'N/A') for x in links]
+    financeref = [comboresults.index(x) for x in comboresults if str(x[2])[:1] == '3']
+    financeurl = links[financeref[0]]  
+    respresults = [x[0] for x in comboresults]          #Breaks down tuple from respAndError() and puts values in lists
+    errors = [x[1] for x in comboresults]        
     print(time.time()-starttime)
 
     linksummary['Title'] = titles                   #Build pandas DataFrame
