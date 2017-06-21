@@ -3,6 +3,7 @@ from splinter import Browser
 import re
 import requests
 import time
+import sys
 
 def findPageType(soup):
     script = soup.find('script', attrs={'language' : 'javascript'})
@@ -15,7 +16,6 @@ def scriptcheck(url):
     script = '<meta name="robots" content="noindex,follow,noodp" />'
     try:
         page = requests.get(url)
-
         if (script) in page.text:
             scriptfinding = 'Present'
         else:
@@ -25,42 +25,24 @@ def scriptcheck(url):
     return(scriptfinding)    
 
 def build_report(url):
-    resultsdict = {}
+    results = []
     starttime = time.time()
     sitemap = url + 'sitemap.aspx'
     s = requests.Session()
     s.get(url)
     soup2 = BeautifulSoup((s.get(sitemap)).text, 'html.parser')
 
-    for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
-            try: 
-                if '#' not in str(link.get('href')):
-                    if link.has_attr('href'):
-                        if str(link.get('href'))[:1] == '/':
-                            newLink = 'http:' + str(link.get('href'))  
-                        else:
-                            newLink = str(link.get('href'))
-                            pagelinks.append(newLink)
-                            pagetitles.append(link.text)
-                            if not str(newLink[0:(len(url))]) == str(url):
-                                resultsdict[newLink] = 'Different Domain'
-                                break
-                try:
-                    pagesoup = BeautifulSoup((s.get(newLink)).text, 'html.parser')
-                    if (str(findPageType(pagesoup))[:1] == '2'):
-                        resultsdict[newLink] = scriptcheck(newLink)
-                except:
-                    pass
-            except:
-                pass 
-    print(time.time()-starttime)
+    links = [x.get('href') for x in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a') if x.has_attr('href') and '#' not in x.get('href')]
+    links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
+    check = [scriptcheck(x) for x in links if x[0:(len(url))] == str(url)]
+    ref = [check.index(x) for x in check if x == 'Present' ]
+    results = set([links[x] for x in ref])
 
-    for result in resultsdict.items():
-        if result[1] == 'Present':
-            print(result[0])
+    print(time.time()-starttime)
+    print(results)
 
 if __name__ == '__main__':
-    urllist = ['http://rontest1212015.beta.ebizautos.com/']
+    urllist = ['http://rontest1212015.beta.ebizautos.com/', 'http://www.hondaofspring.com/']
     start = time.time()
     for url in urllist:
         build_report(url)
