@@ -32,17 +32,17 @@ def build_report(url):
     s.get(url)
     soup2 = BeautifulSoup((s.get(sitemap)).text, 'html.parser')
 
-    links = [x.get('href') for x in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a') if x.has_attr('href') and '#' not in x.get('href')]
-    links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
-    check = [scriptcheck(x) for x in links if x[0:(len(url))] == str(url)]
-    ref = [check.index(x) for x in check if x == 'Present' ]
-    results = set([links[x] for x in ref])
+    links = (x.get('href') for x in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a') if x.has_attr('href') and '#' not in x.get('href'))
+    links = ('http:' + x if x[:1] == '/' else '' + x for x in links)
+    links = (x for x in links if scriptcheck(x) == 'Present')
+    results = set([x for x in links])
 
+    for i in results:
+        print(i)
     print(time.time()-starttime)
-    print(results)
 
 if __name__ == '__main__':
-    urllist = ['http://rontest1212015.beta.ebizautos.com/', 'http://www.hondaofspring.com/']
+    urllist = ['http://rontest1212015.beta.ebizautos.com/']
     start = time.time()
     for url in urllist:
         build_report(url)
