@@ -106,7 +106,6 @@ def filloutleads(contacturl, appurl):       #Fills out lead forms specified in g
     browser.quit()
       
 def build_report(url):            
-    comboresults = []
     linksummary = {}
     starttime = time.time()
     sitemap = url + 'sitemap.aspx'
