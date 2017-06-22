@@ -41,7 +41,6 @@ def respAndError(soup):              #Takes url and determines status of page as
            respfinding = 'Responsive'
         else:
             respfinding = 'Not Responsive'
-        
         if (soup.find('div', attrs={'class' : 'error404'})):
            errorfinding = '404'
         else:
@@ -56,16 +55,9 @@ def respAndError(soup):              #Takes url and determines status of page as
     return (respfinding, errorfinding, pagetype)   #Returns tuple
 
 def geturls(soup, financeurl):          #Finds link for Request More Info form and Credit app.
-    for link in soup.findAll('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a'):       #Grab first vehicle in inventory...
-        if link.has_attr('href'):
-            temp = link.get('href')
-
-            if str(temp)[:1] == '/':
-                Inventoryhref = 'http:' + temp                      #Make sure the URL is in a usable format for requests
-                break
-            else:
-                Inventoryhref = temp
-                break
+    links = (x.get('href') for x in soup.findAll('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a') if x.has_attr('href'))
+    links = ('http:' + x if x[:1] == '/' else '' + x for x in links)
+    Inventoryhref = next(links)                                                             #Grabs first inventory link from sitemap...
     srpsoup = BeautifulSoup((requests.get(Inventoryhref)).text, 'html.parser')
     srpcontact = srpsoup.find('a', attrs={'id' : 'srp-vehicle-request-more-info'})          #Go to that vehicle and grab the link for the Request More Info link
     srpform = srpcontact.get('data-source')
@@ -118,13 +110,13 @@ def build_report(url):
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
     
-    #for link in soup2.find('div', attrs={'id' : 'sitemap-content'}).findAll('a'):
     titles = [x.text for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
     links = [x.get('href') for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
     links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
     comboresults = [respAndError(BeautifulSoup((s.get(x)).text, 'html.parser')) if x[0:(len(url))] == str(url) else ('Different Domain', 'Different Domain', 'N/A') for x in links]
-    financeref = [comboresults.index(x) for x in comboresults if str(x[2])[:1] == '3']
-    financeurl = links[financeref[0]]  
+    financeref = (comboresults.index(x) for x in comboresults if str(x[2])[:1] == '3')
+    try: financeurl = links[next(financeref)]
+    except: pass 
     respresults = [x[0] for x in comboresults]          #Breaks down tuple from respAndError() and puts values in lists
     errors = [x[1] for x in comboresults]        
     print(time.time()-starttime)
