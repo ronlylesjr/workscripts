@@ -34,7 +34,7 @@ def build_report(url):
     print(time.time()-starttime)
 
 if __name__ == '__main__':
-    urllist = ['http://rontest1212015.beta.ebizautos.com/']#, 'http://www.hondaofspring.com/']
+    urllist = ['http://rontest1212015.beta.ebizautos.com/']
     start = time.time()
     for url in urllist:
         build_report(url)
