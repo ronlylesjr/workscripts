@@ -15,25 +15,24 @@ def findPageType(soup):
     pagetype = fields['PageType']
     return pagetype 
 
-def dictBuilder(appurl):        #Build dictionary based on the required items on the form.
-    refdict = {'1234567890' : ['Phone', 'Num', 'Amount', 'Zip'],
-    'test.me@ebizautos.com' : ['Email'],
-    today.strftime('%m/%d/%Y'): ['Date'],
-    '01/01/1985': ['DateOfBirth'],}
-    appDict = {}    
-    soup = BeautifulSoup((requests.get(appurl)).text, 'html.parser')
-
-    for field in soup.findAll('input'):
-        present = False
-        if field.has_attr('required'):
-            for item in refdict.items():
-                for ref in item[1]:
-                    if ref in str(field.get('id')):
-                        appDict[field.get('name')] = item[0]
-                        present = True
+def dictValue(field, present=False):
+    refdict = {'1234567890' : ['Phone', 'Num', 'Amount', 'Zip'], 'test.me@ebizautos.com' : ['Email'], 
+    today.strftime('%m/%d/%Y') : ['Date'], '01/01/1985' : ['DateOfBirth']}
+    while present == False:
+        for item in refdict.items():
+            if any (x in field for x in item[1]):
+                value = item[0]
+                present = True
             if not present:
-                appDict[field.get('name')] = 'Test'
-    return(appDict)  
+                value = 'Test'
+                present = True
+    return value
+
+def dictBuilder(appurl):        #Build dictionary based on the required items on the form.
+    soup = BeautifulSoup((requests.get(appurl)).text, 'html.parser')
+    fields = (x.get('id') for x in soup.findAll('input') if x.has_attr('required'))
+    appDict = {x : dictValue(x) for x in fields}
+    return(appDict)    
 
 def respAndError(soup):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
     try:
