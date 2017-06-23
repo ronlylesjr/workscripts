@@ -1,9 +1,6 @@
 from bs4 import BeautifulSoup
-from splinter import Browser
-import re
 import requests
 import time
-import sys
 
 def scriptcheck(url):
     script = '<meta name="robots" content="noindex,follow,noodp" />'
@@ -15,10 +12,9 @@ def scriptcheck(url):
             scriptfinding = 'Not Present'
     except:
        scriptfinding = 'Broken Link'
-    return(scriptfinding)    
+    return scriptfinding)   
 
 def build_report(url):
-    results = []
     starttime = time.time()
     sitemap = url + 'sitemap.aspx'
     s = requests.Session()
