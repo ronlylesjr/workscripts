@@ -6,18 +6,30 @@ import re
 import requests
 import time
 
+
 today = datetime.datetime.now()
 
+
 def findPageType(soup):
+
     script = soup.find('script', attrs={'language' : 'javascript'})
     pattern = re.compile("(\w+): (.*)")
     fields = dict(re.findall(pattern, script.text))
     pagetype = fields['PageType']
     return pagetype 
 
+
 def dictValue(field, present=False):
-    refdict = {'1234567890' : ['Phone', 'Num', 'Amount', 'Zip'], 'test.me@ebizautos.com' : ['Email'], 
-    today.strftime('%m/%d/%Y') : ['Date'], '01/01/1985' : ['DateOfBirth']}
+    '''Determines test value of a field based on the name'''
+
+
+    refdict = {
+                '1234567890' : ['Phone', 'Num', 'Amount', 'Zip'], 
+                'test.me@ebizautos.com' : ['Email'], 
+                today.strftime('%m/%d/%Y') : ['Date'], 
+                '01/01/1985' : ['DateOfBirth']
+                }
+
     while present == False:
         for item in refdict.items():
             if any (x in field for x in item[1]):
@@ -28,13 +40,22 @@ def dictValue(field, present=False):
                 present = True
     return value
 
-def dictBuilder(appurl):        #Build dictionary based on the required items on the form.
-    soup = BeautifulSoup((requests.get(appurl)).text, 'html.parser')
+
+def dictBuilder(appurl):        
+    '''Build dictionary based on the required items on the form.'''
+
+
+    soup = BeautifulSoup((requests.get(appurl)).text, 'lxml')
     fields = (x.get('id') for x in soup.findAll('input') if x.has_attr('required'))
     appDict = {x : dictValue(x) for x in fields}
     return(appDict)    
 
-def respAndError(soup):              #Takes url and determines status of page as either (Responsive/Not Responsive) and checks if link is broken or leads to 404
+
+def PageResults(soup):              
+    '''Takes url and determines status of page as either 
+    (Responsive/Not Responsive) and checks if link is broken or leads to 404'''
+
+
     try:
         if (soup.find('div', attrs={'id' : 'side-panel'})):
            respfinding = 'Responsive'
@@ -51,35 +72,54 @@ def respAndError(soup):              #Takes url and determines status of page as
         pagetype = findPageType(soup)
     except:
         pagetype = 'N/A'
-    return (respfinding, errorfinding, pagetype)   #Returns tuple
+    return (respfinding, errorfinding, pagetype)   
 
-def geturls(soup, financeurl):          #Finds link for Request More Info form and Credit app.
-    links = (x.get('href') for x in soup.findAll('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a') if x.has_attr('href'))
-    links = ('http:' + x if x[:1] == '/' else '' + x for x in links)
-    Inventoryhref = next(links)                                                             #Grabs first inventory link from sitemap...
-    srpsoup = BeautifulSoup((requests.get(Inventoryhref)).text, 'html.parser')
-    srpcontact = srpsoup.find('a', attrs={'id' : 'srp-vehicle-request-more-info'})          #Go to that vehicle and grab the link for the Request More Info link
-    srpform = srpcontact.get('data-source')
-    soup4 = BeautifulSoup((requests.get(financeurl)).text, 'html.parser')
-    financeurl = soup4.find('a', attrs={'class' : 'button button-large'})                   #Finance page was determined in build_report() and passed into this function.
-    appurl = financeurl.get('href')                                                         #Find credit app link
-    return(srpform, appurl)
 
-def filloutleads(contacturl, appurl):       #Fills out lead forms specified in geturls()
-    formDict = dictBuilder(contacturl)      #TODO: see if we can get addendumDict inside appDict.
+def geturls(soup, FinURL):          
+    '''Finds link for Request More Info form and Credit app.
+    Grabs first inventory link from sitemap and goes to that
+    vehicle for the link for the Request More Info link'''
+
+
+    links = ('http:' + x.get('href') if x.get('href')[:1] == '/' else x.get('href')
+            for x in soup.findAll('div', 
+            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a') 
+            if x.has_attr('href'))
+    
+    ExampleCar = next(links)                                                             
+    srp = BeautifulSoup((requests.get(ExampleCar)).text, 'lxml')
+    RMI = srp.find('a', attrs={'id' : 'srp-vehicle-request-more-info'})          
+    form = RMI.get('data-source')
+    FinPage = BeautifulSoup((requests.get(FinURL)).text, 'lxml')
+    FinURL = FinPage.find('a', attrs={'class' : 'button button-large'})                   
+    appurl = FinURL.get('href')                                                         
+    return(form, appurl)
+
+
+def filloutleads(contacturl, appurl):       
+    '''Fills out lead forms specified in geturls()'''
+    #TODO: see if we can get addendumDict inside appDict.
+
+
+    formDict = dictBuilder(contacturl)      
     appDict = dictBuilder(appurl)
-    addendumDict = {'ctlTypedSignature' : 'test', 'ctlDateSigned' : today.strftime('%m/%d/%Y')} 
+    addendumDict = {
+                    'ctlTypedSignature' : 'test', 
+                    'ctlDateSigned' : today.strftime('%m/%d/%Y')
+                    } 
     browser = Browser()
     browser.visit(contacturl)
     browser.fill_form(formDict)    
     browser.find_by_text('Send').click()
     browser.visit(appurl)
+
     try:
         browser.fill_form(appDict)
     except:
+        # print('Failed to fill out credit app')
         pass
     page = requests.get(appurl)
-    soup = BeautifulSoup(page.text, 'html.parser')    
+    soup = BeautifulSoup(page.text, 'lxml')    
 
     for menu in soup.findAll('select'):
         if menu.has_attr('required'):            
@@ -91,36 +131,53 @@ def filloutleads(contacturl, appurl):       #Fills out lead forms specified in g
                 browser.select(menu.get('name'), '1')
             elif 'Month' in str(menu.get('id')):
                 browser.select(menu.get('name'), '1')
+
     browser.fill_form(addendumDict)
-    browser.find_by_xpath('/html/body/section/form/div/fieldset[7]/div[1]/div[4]/div/div/div/label/span').click()
+    browser.find_by_xpath('''/html/body/section/form/div/fieldset[7]/div[1]/div[4]/div/div/div/label/span''').click()
     browser.find_by_text('Submit Your Application').click()
     browser.quit()
+
       
 def build_report(url):            
     linksummary = {}
-    starttime = time.time()
     sitemap = url + 'sitemap.aspx'
     s = requests.Session()
     s.get(url)
-    soup2 = BeautifulSoup((s.get(sitemap)).text, 'html.parser')
-    script = soup2.find('script', attrs={'language' : 'javascript'})
+    mapsoup = BeautifulSoup((s.get(sitemap)).text, 'lxml')
+    script = mapsoup.find('script', attrs={'language' : 'javascript'})
     pattern = re.compile("(\w+): '(.*?)'")
     fields = dict(re.findall(pattern, script.text))
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
     
-    titles = [x.text for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
-    links = [x.get('href') for x in soup2.find('div', attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') if x.has_attr('href')]
-    links = ['http:' + x if x[:1] == '/' else '' + x for x in links]
-    comboresults = [respAndError(BeautifulSoup((s.get(x)).text, 'html.parser')) if x[0:(len(url))] == str(url) else ('Different Domain', 'Different Domain', 'N/A') for x in links]
-    financeref = (comboresults.index(x) for x in comboresults if str(x[2])[:1] == '3')
-    try: financeurl = links[next(financeref)]
-    except: pass 
-    respresults = [x[0] for x in comboresults]          #Breaks down tuple from respAndError() and puts values in lists
-    errors = [x[1] for x in comboresults]        
-    print(time.time()-starttime)
+    titles = [link.text for link in mapsoup.find('div',
+            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') 
+            if link.has_attr('href')]
 
-    linksummary['Title'] = titles                   #Build pandas DataFrame
+    links = ['http:' + link.get('href') if link.get('href')[:1] == '/' else  
+            link.get('href') for link in mapsoup.find('div', 
+            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') 
+            if link.has_attr('href')]
+
+    comboresults = [PageResults(BeautifulSoup((s.get(x)).text, 'lxml')) 
+                    if x[0:(len(url))] == str(url) else 
+                    ('Different Domain', 'Different Domain', 'N/A')
+                     for x in links]
+
+    financeref = (comboresults.index(x) for x in comboresults 
+                    if str(x[2])[:1] == '3')
+    
+    try: 
+        FinURL = links[next(financeref)]
+    except: 
+        print('Could not find Finance Page') 
+
+    #Breaks down tuple from PageResults() and puts values in lists
+    respresults = [x[0] for x in comboresults]          
+    errors = [x[1] for x in comboresults]        
+
+    #Build pandas DataFrame
+    linksummary['Title'] = titles                   
     linksummary['Link'] = links
     linksummary['Is_Responsive'] = respresults
     linksummary['Errors'] = errors    
@@ -130,12 +187,15 @@ def build_report(url):
 
     if df['Is_Responsive'].isin(['Not Responsive']).any() == True or df['Errors'].isin(['404']).any() == True:
         print('\aPlease check summary to see errors') 
+
+    #Browser automation
     try:             
-        theurls = geturls(soup2, financeurl)
+        theurls = geturls(mapsoup, FinURL)
         print('Starting browser automation...')
-        filloutleads(theurls[0], theurls[1])                #Browser automation
+        filloutleads(theurls[0], theurls[1])                
     except: 
         print('Could not find RMI/Credit app link')
+
 
 if __name__ == '__main__':
     url = input('Please paste URL: \n')
