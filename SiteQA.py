@@ -1,11 +1,11 @@
 from bs4 import BeautifulSoup
 from splinter import Browser
+import concurrent.futures
 import datetime
 import pandas as pd
 import re
 import requests
 import time
-
 
 today = datetime.datetime.now()
 
@@ -13,7 +13,7 @@ today = datetime.datetime.now()
 def findPageType(soup):
 
     script = soup.find('script', attrs={'language' : 'javascript'})
-    pattern = re.compile("(\w+): (.*)")
+    pattern = re.compile("(\w+): (.*),")
     fields = dict(re.findall(pattern, script.text))
     pagetype = fields['PageType']
     return pagetype 
@@ -51,12 +51,15 @@ def dictBuilder(appurl):
     return(appDict)    
 
 
-def PageResults(soup):              
+def PageResults(url):              
     '''Takes url and determines status of page as either 
     (Responsive/Not Responsive) and checks if link is broken or leads to 404'''
 
 
     try:
+        page = requests.get(url)
+        soup = BeautifulSoup(page.text, 'html.parser')
+
         if (soup.find('div', attrs={'id' : 'side-panel'})):
            respfinding = 'Responsive'
         else:
@@ -149,28 +152,29 @@ def build_report(url):
     fields = dict(re.findall(pattern, script.text))
     Summarytitle = fields['DealerName'] + ' Summary.csv'
     print(fields['DealerName'])
+
+    maindiv = 'col-xs-12 col-sm-6 col-md-4'
+    linkdiv = (mapsoup.find('div', attrs={'class' : maindiv}).findAll('a'))
     
-    titles = [link.text for link in mapsoup.find('div',
-            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') 
-            if link.has_attr('href')]
+    titles = [link.text for link in linkdiv if link.has_attr('href')]
 
     links = ['http:' + link.get('href') if link.get('href')[:1] == '/' else  
-            link.get('href') for link in mapsoup.find('div', 
-            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'}).findAll('a') 
-            if link.has_attr('href')]
+            link.get('href') for link in linkdiv if link.has_attr('href')]
 
-    comboresults = [PageResults(BeautifulSoup((s.get(x)).text, 'lxml')) 
-                    if x[0:(len(url))] == str(url) else 
-                    ('Different Domain', 'Different Domain', 'N/A')
-                     for x in links]
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        comboresults = list(executor.map(PageResults, links))
+
+    for counter, link in enumerate(links):
+        if link[0:(len(url))] != str(url):
+            comboresults[counter] = ('Different Domain', 'Different Domain', 'N/A')
 
     financeref = (comboresults.index(x) for x in comboresults 
-                    if str(x[2])[:1] == '3')
+                    if str(x[2]) == '3')
     
     try: 
         FinURL = links[next(financeref)]
     except: 
-        print('Could not find Finance Page') 
+        print('Could not find Finance Page')
 
     #Breaks down tuple from PageResults() and puts values in lists
     respresults = [x[0] for x in comboresults]          
