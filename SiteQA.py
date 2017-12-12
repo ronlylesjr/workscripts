@@ -78,16 +78,13 @@ def PageResults(url):
     return (respfinding, errorfinding, pagetype)   
 
 
-def geturls(soup, FinURL):          
+def geturls(soup, FinURL, hrefs):          
     '''Finds link for Request More Info form and Credit app.
     Grabs first inventory link from sitemap and goes to that
     vehicle for the link for the Request More Info link'''
 
 
-    links = ('http:' + x.get('href') if x.get('href')[:1] == '/' else x.get('href')
-            for x in soup.findAll('div', 
-            attrs={'class' : 'col-xs-12 col-sm-6 col-md-4'})[1].findAll('a') 
-            if x.has_attr('href'))
+    links = (format_link(x.get('href')) for x in hrefs)
     
     ExampleCar = next(links)                                                             
     srp = BeautifulSoup((requests.get(ExampleCar)).text, 'lxml')
@@ -140,6 +137,13 @@ def filloutleads(contacturl, appurl):
     browser.find_by_text('Submit Your Application').click()
     browser.quit()
 
+
+def format_link(link):
+    if link[:1] == '/':
+        return f'http:{link}'
+    else:
+        return link
+
       
 def build_report(url):            
     linksummary = {}
@@ -150,23 +154,22 @@ def build_report(url):
     script = mapsoup.find('script', attrs={'language' : 'javascript'})
     pattern = re.compile("(\w+): '(.*?)'")
     fields = dict(re.findall(pattern, script.text))
-    Summarytitle = fields['DealerName'] + ' Summary.csv'
+    Summarytitle = f'{fields["DealerName"]} Summary.csv'
     print(fields['DealerName'])
 
-    maindiv = 'col-xs-12 col-sm-6 col-md-4'
-    linkdiv = (mapsoup.find('div', attrs={'class' : maindiv}).findAll('a'))
+    mdiv = 'col-xs-12 col-sm-6 col-md-4'
+    hrefs = (mapsoup.find('div', attrs={'class' : mdiv}).findAll('a', href=True))
     
-    titles = [link.text for link in linkdiv if link.has_attr('href')]
+    titles = [link.text for link in hrefs]
 
-    links = ['http:' + link.get('href') if link.get('href')[:1] == '/' else  
-            link.get('href') for link in linkdiv if link.has_attr('href')]
+    links = [format_link(link.get('href')) for link in hrefs]
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
         comboresults = list(executor.map(PageResults, links))
 
-    for counter, link in enumerate(links):
+    for i, link in enumerate(links):
         if link[0:(len(url))] != str(url):
-            comboresults[counter] = ('Different Domain', 'Different Domain', 'N/A')
+            comboresults[i] = ('Different Domain', 'Different Domain', 'N/A')
 
     financeref = (comboresults.index(x) for x in comboresults 
                     if str(x[2]) == '3')
@@ -187,14 +190,14 @@ def build_report(url):
     linksummary['Errors'] = errors    
     df = pd.DataFrame(linksummary)
     df = df[['Title', 'Link', 'Is_Responsive', 'Errors']]
-    df.to_csv('QA Summaries/' + Summarytitle)
+    df.to_csv(f'QA Summaries/{Summarytitle}')
 
     if df['Is_Responsive'].isin(['Not Responsive']).any() == True or df['Errors'].isin(['404']).any() == True:
         print('\aPlease check summary to see errors') 
 
     #Browser automation
     try:             
-        theurls = geturls(mapsoup, FinURL)
+        theurls = geturls(mapsoup, FinURL, hrefs)
         print('Starting browser automation...')
         filloutleads(theurls[0], theurls[1])                
     except: 
